@@ -1,0 +1,10 @@
+[package]
+name = "skip-fail"
+version = "1.0.0"
+license = "MIT"
+authors = ["Kisio Digital <team.coretools@kisio.org>"]
+edition = "2018"
+keywords = ["macro", "log"]
+
+[dependencies]
+log = { version = "0.4", optional = true }
