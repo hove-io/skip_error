@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! This crate provides a single macro to help skipping a error in a loop,
 //! possibly logging it.
 //!
