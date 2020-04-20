@@ -1,6 +1,6 @@
 [package]
 name = "skip_error"
-version = "1.0.0"
+version = "1.0.1"
 license = "MIT"
 authors = ["Kisio Digital <team.coretools@kisio.org>"]
 description = "A macro to help skip an iteration in a loop from a Result"
