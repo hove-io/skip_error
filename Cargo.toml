@@ -9,6 +9,7 @@ homepage = "https://github.com/CanalTP/skip_error"
 repository = "https://github.com/CanalTP/skip_error"
 documentation = "https://docs.rs/skip_error"
 readme = "README.md"
+categories = ["rust-patterns"]
 keywords = ["macro", "log"]
 
 [dependencies]
