@@ -4,24 +4,30 @@
 # - Add a line in `.env` with `LOCAL_DEV=true`
 -include .env
 
-ifeq ($(LOCAL_DEV),true)
-	SH=sh -c
-else
-	SH=docker run --rm --user "$(id -u)":"$(id -g)" --volume "${PWD}":/tmp/workspace --workdir /tmp/workspace rust:latest sh -c
-endif
+define run_cmd
+	if [ "$(LOCAL_DEV)" = true ] ; \
+	then \
+		$(1); \
+	else \
+		docker run --rm --user "$(id -u)":"$(id -g)" --volume "${PWD}":/tmp/skip_error --workdir /tmp/skip_error rust:latest sh -c "$(1)"; \
+	fi
+endef
 
-fmt: format ## Check formatting of the code (alias for 'lint')
+fmt: format ## Check formatting of the code (alias for 'format')
 
 format: ## Check formatting of the code
-	${SH} "rustup component add rustfmt && cargo fmt --all -- --check"
+	$(call run_cmd,\
+	rustup component add rustfmt && cargo fmt --all -- --check)
 
 clippy: lint ## Check quality of the code (alias for 'lint')
 
 lint: ## Check quality of the code
-	${SH} "rustup component add clippy && cargo clippy --workspace --all-features --all-targets -- --warn clippy::cargo --allow clippy::multiple_crate_versions --deny warnings"
+	$(call run_cmd,\
+	rustup component add clippy && cargo clippy --workspace --all-features --all-targets -- --warn clippy::cargo --allow clippy::multiple_crate_versions --deny warnings)
 
 test: ## Launch all tests
-	${SH} "cargo test --workspace --all-features --all-targets"
+	$(call run_cmd,\
+	cargo test --workspace --all-features --all-targets)
 
 help: ## Print this help message
 	@grep -E '^[a-zA-Z_-]+:.*## .*$$' $(CURDIR)/$(firstword $(MAKEFILE_LIST)) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
