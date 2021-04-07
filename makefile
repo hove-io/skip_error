@@ -9,7 +9,7 @@ define run_cmd
 	then \
 		$(1); \
 	else \
-		docker run --rm --user "$(id -u)":"$(id -g)" --volume "${PWD}":/tmp/workspace --workdir /tmp/workspace rust:latest sh -c "$(1)"; \
+		docker run --rm --user "$(id -u)":"$(id -g)" --volume "${PWD}":/tmp/workspace --workdir /tmp/workspace kisiodigital/rust-ci:latest sh -c "$(1)"; \
 	fi
 endef
 
