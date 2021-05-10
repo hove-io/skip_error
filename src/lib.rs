@@ -86,3 +86,103 @@ macro_rules! skip_error_and_log {
         }
     }};
 }
+
+/// An iterator that ignore errors
+pub struct SkipErrorIter<I, T, E>
+where
+    I: Iterator<Item = Result<T, E>>,
+{
+    inner: I,
+    #[cfg(feature = "log")]
+    log_level: log::Level,
+}
+
+impl<I, T, E> std::iter::Iterator for SkipErrorIter<I, T, E>
+where
+    I: Iterator<Item = Result<T, E>>,
+    E: std::fmt::Display,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().and_then(|result| match result {
+            Ok(value) => Some(value),
+            Err(_error) => {
+                #[cfg(feature = "log")]
+                log::log!(self.log_level, "{}", _error);
+                self.next()
+            }
+        })
+    }
+}
+
+/// Trait to extend any [`Iterator`] where the [`Iterator::Item`] is a [`Result`].
+/// This allows to skip errors and keep only the `Ok()` values.
+pub trait SkipError<I, T, E>: Sized
+where
+    I: Iterator<Item = Result<T, E>>,
+{
+    /// Skip all errors of the [`Result`] in the original [`Iterator`].
+    /// This is essentially equivalent to `.flatten()`.
+    ///
+    /// ```edition2018
+    /// use skip_error::SkipError;
+    /// let v: Vec<usize> = vec![0,1,0,0,3]
+    ///   .into_iter()
+    ///   .map(|v|
+    ///     if v == 0 {
+    ///       Ok(0)
+    ///     } else {
+    ///       Err(format!("Boom on {}", v))
+    ///     }
+    ///   )
+    ///   .skip_error()
+    ///   .collect();
+    /// assert_eq!(v, vec![0,0,0]);
+    /// ```
+    fn skip_error(self) -> SkipErrorIter<I, T, E>;
+
+    /// Skip all errors of the [`Result`] in the original [`Iterator`].
+    /// This also allows to log the errors, choosing which [`log::Level`] to use.
+    ///
+    /// ```edition2018
+    /// use skip_error::SkipError;
+    /// let v: Vec<usize> = vec![0,1,0,0,3]
+    ///   .into_iter()
+    ///   .map(|v|
+    ///     if v == 0 {
+    ///       Ok(0)
+    ///     } else {
+    ///       Err(format!("Boom on {}", v))
+    ///     }
+    ///   )
+    ///   // Will log the following messages:
+    ///   // - WARN: Boom on 1
+    ///   // - WARN: Boom on 3
+    ///   .skip_error_and_log(log::Level::Warn)
+    ///   .collect();
+    /// assert_eq!(v, vec![0,0,0]);
+    /// ```
+    #[cfg(feature = "log")]
+    fn skip_error_and_log(self, log_level: log::Level) -> SkipErrorIter<I, T, E>;
+}
+
+impl<I, T, E> SkipError<I, T, E> for I
+where
+    I: Iterator<Item = Result<T, E>>,
+{
+    fn skip_error(self) -> SkipErrorIter<I, T, E> {
+        SkipErrorIter {
+            inner: self,
+            #[cfg(feature = "log")]
+            log_level: log::Level::Info,
+        }
+    }
+    #[cfg(feature = "log")]
+    fn skip_error_and_log(self, log_level: log::Level) -> SkipErrorIter<I, T, E> {
+        SkipErrorIter {
+            inner: self,
+            log_level,
+        }
+    }
+}
