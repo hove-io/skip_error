@@ -94,7 +94,7 @@ where
 {
     inner: I,
     #[cfg(feature = "log")]
-    log_level: log::Level,
+    log_level: Option<log::Level>,
 }
 
 impl<I, T, E> std::iter::Iterator for SkipErrorIter<I, T, E>
@@ -109,7 +109,9 @@ where
             Ok(value) => Some(value),
             Err(_error) => {
                 #[cfg(feature = "log")]
-                log::log!(self.log_level, "{}", _error);
+                if let Some(log_level) = self.log_level {
+                    log::log!(log_level, "{}", _error);
+                }
                 self.next()
             }
         })
@@ -175,14 +177,14 @@ where
         SkipErrorIter {
             inner: self,
             #[cfg(feature = "log")]
-            log_level: log::Level::Info,
+            log_level: None,
         }
     }
     #[cfg(feature = "log")]
     fn skip_error_and_log(self, log_level: log::Level) -> SkipErrorIter<I, T, E> {
         SkipErrorIter {
             inner: self,
-            log_level,
+            log_level: Some(log_level),
         }
     }
 }
