@@ -13,7 +13,7 @@
 //! }
 //! ```
 //!
-//! Then you can use the macro `skip_error!` to write like this.
+//! Then you can use the macro [`skip_error!`] to write like this.
 //! ```edition2018
 //! # #[macro_use]
 //! # extern crate skip_error;
@@ -24,9 +24,36 @@
 //! # }
 //! ```
 //!
-//! If you want the error to be logged, you can use the feature `log`. The
-//! logging will be done in WARN level with the standard logging interface
-//! provided by [`log`](https://crates.io/crates/log).
+//! Or even better, use the trait [`SkipError`] that extends [`Iterator`] and do
+//! the following (essentially equivalent to [`Iterator::flatten()`] but see
+//! below for logging abilities).
+//! ```edition2018
+//! # #[macro_use]
+//! # extern crate skip_error;
+//! use skip_error::SkipError;
+//! # fn main() {
+//! let numbers: Vec<u32> = ["1", "2", "three", "4"]
+//!   .into_iter()
+//!   .map(|string_number| string_number.parse())
+//!   .skip_error()
+//!   .collect();
+//! # }
+//! ```
+//!
+//! # Logging
+//!
+//! If you want the error to be logged, you can use the feature `log` or the
+//! feature `tracing` (see [Features](#features)). See [`skip_error_and_log!`]
+//! and [`SkipError::skip_error_and_log()`] for more information.
+//!
+//! # Features
+//!
+//! - `log`: emit log message with the standard `std::log` macro. Disabled by
+//! default.
+//! - `tracing`: emit traces with the `tracing::trace` macro. Disabled
+//! by default. If both `log` and `tracing` are enabled, then `log` will be
+//! ignored since `tracing` is configured in a compatibility mode with standard
+//! `log`.
 
 /// `skip_error` returns the value of a `Result` or continues a loop.
 ///
@@ -56,33 +83,75 @@ macro_rules! skip_error {
     }};
 }
 
-/// `skip_error_and_log` returns the value of a `Result` or log and continues a loop.
+/// `skip_error_and_log` returns the value of a `Result` or log and continues a
+/// loop.
 ///
 /// `skip_error_and_log` macro takes two parameters. The first argument is of
-/// type `std::result::Result`. The second argument take the `log::Level` to use
-/// for the logging.  The macro returns the value if `Result::Ok` and else, it
-/// logs the `Result::Error` and calls `continue`.
+/// type `std::result::Result`. The second argument is anything that can be
+/// turned into `log::Level` (feature `log`) or `tracing::Level` (feature
+/// `tracing`) and defines the level to log to.  The macro returns the value if
+/// `Result::Ok` and else, it logs the `Result::Error` and calls `continue`.
 ///
 /// For example
 /// ```edition2018
 /// # #[macro_use]
 /// # extern crate skip_error;
 /// # fn main() {
+/// # testing_logger::setup();
 /// for string_number in &["1", "2", "three", "4"] {
-///   let number: u32 = skip_error_and_log!(string_number.parse(), log::Level::Warn);
+#[cfg_attr(
+    all(feature = "log", not(feature = "tracing")),
+    doc = "  let number: u32 = skip_error_and_log!(string_number.parse(), log::Level::Warn);"
+)]
+#[cfg_attr(
+    feature = "tracing",
+    doc = "  let number: u32 = skip_error_and_log!(string_number.parse(), tracing::Level::WARN);"
+)]
 /// }
+/// testing_logger::validate(|captured_logs| {
+///   assert!(captured_logs[0].body.contains("invalid digit found in string"));
+///   assert_eq!(captured_logs[0].level, log::Level::Warn);
+/// });
 /// # }
 /// ```
 #[macro_export]
-#[cfg(feature = "log")]
+#[cfg(any(feature = "log", feature = "tracing"))]
 macro_rules! skip_error_and_log {
     ($result:expr, $log_level:expr) => {{
         match $result {
             Ok(value) => value,
             Err(error) => {
-                log::log!($log_level, "{}", error);
+                $crate::__log!(error, $log_level);
                 continue;
             }
+        }
+    }};
+}
+
+#[doc(hidden)]
+#[macro_export]
+#[cfg(all(feature = "log", not(feature = "tracing")))]
+macro_rules! __log {
+    ($error:expr, $log_level:expr) => {{
+        log::log!(
+            std::convert::Into::<log::Level>::into($log_level),
+            "{}",
+            $error
+        );
+    }};
+}
+
+#[doc(hidden)]
+#[macro_export]
+#[cfg(feature = "tracing")]
+macro_rules! __log {
+    ($error:tt, $log_level:expr) => {{
+        match std::convert::Into::<tracing::Level>::into($log_level) {
+            tracing::Level::INFO => tracing::info!("{}", $error),
+            tracing::Level::WARN => tracing::warn!("{}", $error),
+            tracing::Level::ERROR => tracing::error!("{}", $error),
+            tracing::Level::DEBUG => tracing::debug!("{}", $error),
+            tracing::Level::TRACE => tracing::trace!("{}", $error),
         }
     }};
 }
@@ -93,8 +162,10 @@ where
     I: Iterator<Item = Result<T, E>>,
 {
     inner: I,
-    #[cfg(feature = "log")]
+    #[cfg(all(feature = "log", not(feature = "tracing")))]
     log_level: Option<log::Level>,
+    #[cfg(feature = "tracing")]
+    log_level: Option<tracing::Level>,
 }
 
 impl<I, T, E> std::iter::Iterator for SkipErrorIter<I, T, E>
@@ -108,9 +179,9 @@ where
         self.inner.next().and_then(|result| match result {
             Ok(value) => Some(value),
             Err(_error) => {
-                #[cfg(feature = "log")]
+                #[cfg(any(feature = "log", feature = "tracing"))]
                 if let Some(log_level) = self.log_level {
-                    log::log!(log_level, "{}", _error);
+                    __log!(_error, log_level);
                 }
                 self.next()
             }
@@ -144,11 +215,12 @@ where
     /// ```
     fn skip_error(self) -> SkipErrorIter<I, T, E>;
 
-    /// Skip all errors of the [`Result`] in the original [`Iterator`].
-    /// This also allows to log the errors, choosing which [`log::Level`] to use.
+    /// Skip all errors of the [`Result`] in the original [`Iterator`].  This
+    /// also allows to log the errors, choosing which [`log::Level`] to use.
     ///
     /// ```edition2018
     /// use skip_error::SkipError;
+    /// # testing_logger::setup();
     /// let v: Vec<usize> = vec![0,1,0,0,3]
     ///   .into_iter()
     ///   .map(|v|
@@ -158,15 +230,50 @@ where
     ///       Err(format!("Boom on {}", v))
     ///     }
     ///   )
-    ///   // Will log the following messages:
-    ///   // - WARN: Boom on 1
-    ///   // - WARN: Boom on 3
     ///   .skip_error_and_log(log::Level::Warn)
     ///   .collect();
     /// assert_eq!(v, vec![0,0,0]);
+    /// testing_logger::validate(|captured_logs| {
+    ///   assert_eq!(captured_logs[0].level, log::Level::Warn);
+    ///   assert_eq!(captured_logs[0].body, "Boom on 1");
+    ///   assert_eq!(captured_logs[1].level, log::Level::Warn);
+    ///   assert_eq!(captured_logs[1].body, "Boom on 3");
+    /// });
     /// ```
-    #[cfg(feature = "log")]
-    fn skip_error_and_log(self, log_level: log::Level) -> SkipErrorIter<I, T, E>;
+    #[cfg(all(feature = "log", not(feature = "tracing")))]
+    fn skip_error_and_log<L>(self, log_level: L) -> SkipErrorIter<I, T, E>
+    where
+        L: Into<log::Level>;
+    ///
+    /// Skip all errors of the [`Result`] in the original [`Iterator`].  This
+    /// also allows to log the errors, choosing which [`tracing::Level`] to use.
+    ///
+    /// ```edition2018
+    /// use skip_error::SkipError;
+    /// # testing_logger::setup();
+    /// let v: Vec<usize> = vec![0,1,0,0,3]
+    ///   .into_iter()
+    ///   .map(|v|
+    ///     if v == 0 {
+    ///       Ok(0)
+    ///     } else {
+    ///       Err(format!("Boom on {}", v))
+    ///     }
+    ///   )
+    ///   .skip_error_and_log(tracing::Level::WARN)
+    ///   .collect();
+    /// assert_eq!(v, vec![0,0,0]);
+    /// testing_logger::validate(|captured_logs| {
+    ///   assert_eq!(captured_logs[0].level, log::Level::Warn);
+    ///   assert_eq!(captured_logs[0].body, "Boom on 1 ");
+    ///   assert_eq!(captured_logs[1].level, log::Level::Warn);
+    ///   assert_eq!(captured_logs[1].body, "Boom on 3 ");
+    /// });
+    /// ```
+    #[cfg(feature = "tracing")]
+    fn skip_error_and_log<L>(self, trace_level: L) -> SkipErrorIter<I, T, E>
+    where
+        L: Into<tracing::Level>;
 }
 
 impl<I, T, E> SkipError<I, T, E> for I
@@ -176,15 +283,28 @@ where
     fn skip_error(self) -> SkipErrorIter<I, T, E> {
         SkipErrorIter {
             inner: self,
-            #[cfg(feature = "log")]
+            #[cfg(any(feature = "log", feature = "tracing"))]
             log_level: None,
         }
     }
-    #[cfg(feature = "log")]
-    fn skip_error_and_log(self, log_level: log::Level) -> SkipErrorIter<I, T, E> {
+    #[cfg(all(feature = "log", not(feature = "tracing")))]
+    fn skip_error_and_log<L>(self, log_level: L) -> SkipErrorIter<I, T, E>
+    where
+        L: Into<log::Level>,
+    {
         SkipErrorIter {
             inner: self,
-            log_level: Some(log_level),
+            log_level: Some(log_level.into()),
+        }
+    }
+    #[cfg(feature = "tracing")]
+    fn skip_error_and_log<L>(self, log_level: L) -> SkipErrorIter<I, T, E>
+    where
+        L: Into<tracing::Level>,
+    {
+        SkipErrorIter {
+            inner: self,
+            log_level: Some(log_level.into()),
         }
     }
 }
