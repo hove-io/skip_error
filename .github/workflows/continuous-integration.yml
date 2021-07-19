@@ -62,6 +62,16 @@ jobs:
       with:
         command: test
         args: --workspace --verbose
+    - name: Run tests with 'log' feature
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --workspace --verbose --features log
+    - name: Run tests with 'tracing' feature
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --workspace --verbose --features tracing
     - name: Run tests with all features
       uses: actions-rs/cargo@v1
       with:

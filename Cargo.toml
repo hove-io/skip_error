@@ -1,19 +1,25 @@
 [package]
 name = "skip_error"
-version = "1.1.0"
+version = "2.0.0"
 license = "MIT"
 authors = ["Kisio Digital <team.coretools@kisio.org>"]
-description = "A macro to help skip an iteration in a loop from a Result"
+description = "Utility helping skip and log Result::Error in iterations"
 edition = "2018"
 homepage = "https://github.com/CanalTP/skip_error"
 repository = "https://github.com/CanalTP/skip_error"
 documentation = "https://docs.rs/skip_error"
 readme = "README.md"
-categories = ["rust-patterns"]
-keywords = ["macro", "log"]
+categories = ["development-tools::debugging", "rust-patterns"]
+keywords = ["macro", "log", "tracing"]
 
 [dependencies]
 log = { version = "0.4", optional = true }
+tracing = { version = "0.1", features = ["log"], optional = true }
+
+[dev-dependencies]
+log = "0.4"
+testing_logger = "0.1"
 
 [package.metadata.docs.rs]
 all-features = true
+
