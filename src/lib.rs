@@ -128,6 +128,98 @@ macro_rules! skip_error_and_log {
     }};
 }
 
+// From https://docs.rs/doc-comment but only the interesting part
+// Allow us to document our generated macros
+#[cfg(any(feature = "log", feature = "tracing"))]
+macro_rules! doc_comment {
+    ($x:expr,  $($tt:tt)*) => {
+        #[doc = $x]
+        $($tt)*
+    };
+}
+
+// Macro to generate new macros
+#[cfg(any(feature = "log", feature = "tracing"))]
+macro_rules! skip_error_macro_generation {
+    ($macro_name:ident, $log_level:expr) => {
+        skip_error_macro_generation!($macro_name, $log_level, $log_level);
+    };
+    ($macro_name:ident, $log_level:expr, $expected_log_level:expr) => {
+        doc_comment! {
+            // Start the comment of the generated macro
+            concat!(
+                "`",
+                stringify!($macro_name),
+                "` returns the value of a [`Result`] or log with [`",
+                stringify!($log_level),
+                "`] and continues the loop.\n\n",
+                "`",
+                stringify!($macro_name),
+                "` macro takes one parameter which is of type [`Result`].",
+                "The macro returns the value if `Result::Ok` and else,",
+                "it logs the [`Result::Err`] with level [`",
+                stringify!($log_level),
+                "`] and calls `continue`.\n\n",
+                "For example\n",
+                "```edition2018\n",
+                "# #[macro_use]\n",
+                "# extern crate skip_error;\n",
+                "# fn main() {\n",
+                "# testing_logger::setup();\n",
+                "for string_number in &[\"1\", \"2\", \"three\", \"4\"] {\n",
+                "  let number: u32 = ", stringify!($macro_name), "!(string_number.parse());\n",
+                "}\n",
+                "testing_logger::validate(|captured_logs| {\n",
+                "  assert!(captured_logs[0].body.contains(\"invalid digit found in string\"));\n",
+                "  assert_eq!(captured_logs[0].level, ", stringify!($expected_log_level), ");\n",
+                "});\n",
+                "# }\n",
+                "```\n",
+            ),
+            // Start the macro definition
+            #[macro_export]
+            macro_rules! $macro_name {
+                ($result:expr) => {{
+                    skip_error_and_log!($result, $log_level)
+                }};
+            }
+        }
+    };
+}
+
+#[cfg(all(feature = "log", not(feature = "tracing")))]
+skip_error_macro_generation!(skip_error_and_error, log::Level::Error);
+#[cfg(all(feature = "log", not(feature = "tracing")))]
+skip_error_macro_generation!(skip_error_and_warn, log::Level::Warn);
+#[cfg(all(feature = "log", not(feature = "tracing")))]
+skip_error_macro_generation!(skip_error_and_info, log::Level::Info);
+#[cfg(all(feature = "log", not(feature = "tracing")))]
+skip_error_macro_generation!(skip_error_and_debug, log::Level::Debug);
+#[cfg(all(feature = "log", not(feature = "tracing")))]
+skip_error_macro_generation!(skip_error_and_trace, log::Level::Trace);
+#[cfg(feature = "tracing")]
+skip_error_macro_generation!(
+    skip_error_and_error,
+    tracing::Level::ERROR,
+    log::Level::Error
+);
+#[cfg(feature = "tracing")]
+skip_error_macro_generation!(skip_error_and_warn, tracing::Level::WARN, log::Level::Warn);
+#[cfg(feature = "tracing")]
+skip_error_macro_generation!(skip_error_and_info, tracing::Level::INFO, log::Level::Info);
+#[cfg(feature = "tracing")]
+skip_error_macro_generation!(
+    skip_error_and_debug,
+    tracing::Level::DEBUG,
+    log::Level::Debug
+);
+#[cfg(feature = "tracing")]
+skip_error_macro_generation!(
+    skip_error_and_trace,
+    tracing::Level::TRACE,
+    log::Level::Trace
+);
+
 #[doc(hidden)]
 #[macro_export]
 #[cfg(all(feature = "log", not(feature = "tracing")))]
