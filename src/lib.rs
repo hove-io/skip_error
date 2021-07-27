@@ -40,12 +40,16 @@
 //! # }
 //! ```
 //!
-//! # Logging
-//!
-//! If you want the error to be logged, you can use the feature `log` or the
-//! feature `tracing` (see [Features](#features)). See [`skip_error_and_log!`]
-//! and [`SkipError::skip_error_and_log()`] for more information.
-//!
+#![cfg_attr(
+    any(feature = "log", feature = "tracing"),
+    doc = "
+# Logging
+
+If you want the error to be logged, you can use the feature `log` or the
+feature `tracing` (see [Features](#features)). See [`skip_error_and_log!`]
+and [`SkipError::skip_error_and_log()`] for more information.
+"
+)]
 //! # Features
 //!
 //! - `log`: emit log message with the standard `std::log` macro. Disabled by
@@ -55,11 +59,11 @@
 //! ignored since `tracing` is configured in a compatibility mode with standard
 //! `log`.
 
-/// `skip_error` returns the value of a `Result` or continues a loop.
+/// `skip_error` returns the value of a [`Result`] or continues a loop.
 ///
-/// `skip_error` macro takes one parameter of type `std::result::Result`. It
-/// returns the value if `Result::Ok` or else, it calls `continue` and ignore
-/// the `Result::Error`.
+/// `skip_error` macro takes one parameter of type [`Result`]. It returns the
+/// value if [`Result::Ok`] or else, it calls `continue` and ignore the
+/// [`Result::Err`].
 ///
 /// For example
 /// ```edition2018
@@ -83,14 +87,15 @@ macro_rules! skip_error {
     }};
 }
 
-/// `skip_error_and_log` returns the value of a `Result` or log and continues a
-/// loop.
+/// `skip_error_and_log` returns the value of a [`Result`] or log and continues
+/// the loop.
 ///
 /// `skip_error_and_log` macro takes two parameters. The first argument is of
-/// type `std::result::Result`. The second argument is anything that can be
-/// turned into `log::Level` (feature `log`) or `tracing::Level` (feature
-/// `tracing`) and defines the level to log to.  The macro returns the value if
-/// `Result::Ok` and else, it logs the `Result::Error` and calls `continue`.
+/// type [`Result`]. The second argument is anything that can be turned into
+#[cfg_attr(all(feature = "log", not(feature = "tracing")), doc = "[`log::Level`]")]
+#[cfg_attr(feature = "tracing", doc = "[`tracing::Level`]")]
+/// and defines the level to log to.  The macro returns the value if
+/// [`Result::Ok`] and else, it logs the [`Result::Err`] and calls `continue`.
 ///
 /// For example
 /// ```edition2018
