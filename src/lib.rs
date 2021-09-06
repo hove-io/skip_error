@@ -272,6 +272,34 @@ where
     }
 }
 
+#[cfg(any(feature = "log", feature = "tracing"))]
+macro_rules! default_impl_skip_error_iterator {
+    ($method_name:ident,$log_level:expr) => {
+        #[doc = concat!(
+                            "Shortcut for [`SkipError::skip_error_and_log`] with a log level of [`",
+                            stringify!($log_level),
+                            "`].\n\n",
+                            "For example\n",
+                            "```edition2018\n",
+                            "use skip_error::SkipError;\n",
+                            "# fn main() {\n",
+                            "# testing_logger::setup();\n",
+                            "vec![Ok(1), Ok(2), Err(\"'three' is not a valid number\"), Ok(4)]\n",
+                            "  .into_iter()\n",
+                            "  .skip_error_and_debug()\n",
+                            "  .collect::<Vec<_>>();\n",
+                            "testing_logger::validate(|captured_logs| {\n",
+                            "  assert!(captured_logs[0].body.contains(\"'three' is not a valid number\"));\n",
+                            "});\n",
+                            "# }\n",
+                            "```\n"
+                        )]
+        fn $method_name(self) -> SkipErrorIter<I, T, E> {
+            self.skip_error_and_log($log_level)
+        }
+    };
+}
+
 /// Trait to extend any [`Iterator`] where the [`Iterator::Item`] is a [`Result`].
 /// This allows to skip errors and keep only the `Ok()` values.
 pub trait SkipError<I, T, E>: Sized
@@ -357,6 +385,27 @@ where
     fn skip_error_and_log<L>(self, trace_level: L) -> SkipErrorIter<I, T, E>
     where
         L: Into<tracing::Level>;
+
+    #[cfg(all(feature = "log", not(feature = "tracing")))]
+    default_impl_skip_error_iterator!(skip_error_and_trace, log::Level::Trace);
+    #[cfg(all(feature = "log", not(feature = "tracing")))]
+    default_impl_skip_error_iterator!(skip_error_and_debug, log::Level::Debug);
+    #[cfg(all(feature = "log", not(feature = "tracing")))]
+    default_impl_skip_error_iterator!(skip_error_and_error, log::Level::Error);
+    #[cfg(all(feature = "log", not(feature = "tracing")))]
+    default_impl_skip_error_iterator!(skip_error_and_warn, log::Level::Warn);
+    #[cfg(all(feature = "log", not(feature = "tracing")))]
+    default_impl_skip_error_iterator!(skip_error_and_info, log::Level::Info);
+    #[cfg(feature = "tracing")]
+    default_impl_skip_error_iterator!(skip_error_and_trace, tracing::Level::TRACE);
+    #[cfg(feature = "tracing")]
+    default_impl_skip_error_iterator!(skip_error_and_debug, tracing::Level::DEBUG);
+    #[cfg(feature = "tracing")]
+    default_impl_skip_error_iterator!(skip_error_and_error, tracing::Level::ERROR);
+    #[cfg(feature = "tracing")]
+    default_impl_skip_error_iterator!(skip_error_and_warn, tracing::Level::WARN);
+    #[cfg(feature = "tracing")]
+    default_impl_skip_error_iterator!(skip_error_and_info, tracing::Level::INFO);
 }
 
 impl<I, T, E> SkipError<I, T, E> for I
