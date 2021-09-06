@@ -40,12 +40,16 @@
 //! # }
 //! ```
 //!
-//! # Logging
-//!
-//! If you want the error to be logged, you can use the feature `log` or the
-//! feature `tracing` (see [Features](#features)). See [`skip_error_and_log!`]
-//! and [`SkipError::skip_error_and_log()`] for more information.
-//!
+#![cfg_attr(
+    any(feature = "log", feature = "tracing"),
+    doc = "
+# Logging
+
+If you want the error to be logged, you can use the feature `log` or the
+feature `tracing` (see [Features](#features)). See [`skip_error_and_log!`]
+and [`SkipError::skip_error_and_log()`] for more information.
+"
+)]
 //! # Features
 //!
 //! - `log`: emit log message with the standard `std::log` macro. Disabled by
@@ -55,11 +59,11 @@
 //! ignored since `tracing` is configured in a compatibility mode with standard
 //! `log`.
 
-/// `skip_error` returns the value of a `Result` or continues a loop.
+/// `skip_error` returns the value of a [`Result`] or continues a loop.
 ///
-/// `skip_error` macro takes one parameter of type `std::result::Result`. It
-/// returns the value if `Result::Ok` or else, it calls `continue` and ignore
-/// the `Result::Error`.
+/// `skip_error` macro takes one parameter of type [`Result`]. It returns the
+/// value if [`Result::Ok`] or else, it calls `continue` and ignore the
+/// [`Result::Err`].
 ///
 /// For example
 /// ```edition2018
@@ -83,14 +87,15 @@ macro_rules! skip_error {
     }};
 }
 
-/// `skip_error_and_log` returns the value of a `Result` or log and continues a
-/// loop.
+/// `skip_error_and_log` returns the value of a [`Result`] or log and continues
+/// the loop.
 ///
 /// `skip_error_and_log` macro takes two parameters. The first argument is of
-/// type `std::result::Result`. The second argument is anything that can be
-/// turned into `log::Level` (feature `log`) or `tracing::Level` (feature
-/// `tracing`) and defines the level to log to.  The macro returns the value if
-/// `Result::Ok` and else, it logs the `Result::Error` and calls `continue`.
+/// type [`Result`]. The second argument is anything that can be turned into
+#[cfg_attr(all(feature = "log", not(feature = "tracing")), doc = "[`log::Level`]")]
+#[cfg_attr(feature = "tracing", doc = "[`tracing::Level`]")]
+/// and defines the level to log to.  The macro returns the value if
+/// [`Result::Ok`] and else, it logs the [`Result::Err`] and calls `continue`.
 ///
 /// For example
 /// ```edition2018
@@ -127,6 +132,84 @@ macro_rules! skip_error_and_log {
         }
     }};
 }
+
+// Macro to generate new macros
+#[cfg(any(feature = "log", feature = "tracing"))]
+macro_rules! skip_error_macro_generation {
+    ($macro_name:ident, $log_level:expr) => {
+        skip_error_macro_generation!($macro_name, $log_level, $log_level);
+    };
+    ($macro_name:ident, $log_level:expr, $expected_log_level:expr) => {
+        #[doc = concat!(
+            "`",
+            stringify!($macro_name),
+            "` returns the value of a [`Result`] or log with [`",
+            stringify!($log_level),
+            "`] and continues the loop.\n\n",
+            "`",
+            stringify!($macro_name),
+            "` macro takes one parameter which is of type [`Result`].",
+            "The macro returns the value if `Result::Ok` and else,",
+            "it logs the [`Result::Err`] with level [`",
+            stringify!($log_level),
+            "`] and calls `continue`.\n\n",
+            "For example\n",
+            "```edition2018\n",
+            "# #[macro_use]\n",
+            "# extern crate skip_error;\n",
+            "# fn main() {\n",
+            "# testing_logger::setup();\n",
+            "for string_number in &[\"1\", \"2\", \"three\", \"4\"] {\n",
+            "  let number: u32 = ", stringify!($macro_name), "!(string_number.parse());\n",
+            "}\n",
+            "testing_logger::validate(|captured_logs| {\n",
+            "  assert!(captured_logs[0].body.contains(\"invalid digit found in string\"));\n",
+            "  assert_eq!(captured_logs[0].level, ", stringify!($expected_log_level), ");\n",
+            "});\n",
+            "# }\n",
+            "```\n",
+        )]
+        #[macro_export]
+        macro_rules! $macro_name {
+            ($result:expr) => {{
+                skip_error_and_log!($result, $log_level)
+            }};
+        }
+    };
+}
+
+#[cfg(all(feature = "log", not(feature = "tracing")))]
+skip_error_macro_generation!(skip_error_and_error, log::Level::Error);
+#[cfg(all(feature = "log", not(feature = "tracing")))]
+skip_error_macro_generation!(skip_error_and_warn, log::Level::Warn);
+#[cfg(all(feature = "log", not(feature = "tracing")))]
+skip_error_macro_generation!(skip_error_and_info, log::Level::Info);
+#[cfg(all(feature = "log", not(feature = "tracing")))]
+skip_error_macro_generation!(skip_error_and_debug, log::Level::Debug);
+#[cfg(all(feature = "log", not(feature = "tracing")))]
+skip_error_macro_generation!(skip_error_and_trace, log::Level::Trace);
+#[cfg(feature = "tracing")]
+skip_error_macro_generation!(
+    skip_error_and_error,
+    tracing::Level::ERROR,
+    log::Level::Error
+);
+#[cfg(feature = "tracing")]
+skip_error_macro_generation!(skip_error_and_warn, tracing::Level::WARN, log::Level::Warn);
+#[cfg(feature = "tracing")]
+skip_error_macro_generation!(skip_error_and_info, tracing::Level::INFO, log::Level::Info);
+#[cfg(feature = "tracing")]
+skip_error_macro_generation!(
+    skip_error_and_debug,
+    tracing::Level::DEBUG,
+    log::Level::Debug
+);
+#[cfg(feature = "tracing")]
+skip_error_macro_generation!(
+    skip_error_and_trace,
+    tracing::Level::TRACE,
+    log::Level::Trace
+);
 
 #[doc(hidden)]
 #[macro_export]
