@@ -286,7 +286,7 @@ macro_rules! default_impl_skip_error_iterator {
                             "# testing_logger::setup();\n",
                             "vec![Ok(1), Ok(2), Err(\"'three' is not a valid number\"), Ok(4)]\n",
                             "  .into_iter()\n",
-                            "  .skip_error_and_debug()\n",
+                            "  .", stringify!($method_name), "()\n",
                             "  .collect::<Vec<_>>();\n",
                             "testing_logger::validate(|captured_logs| {\n",
                             "  assert!(captured_logs[0].body.contains(\"'three' is not a valid number\"));\n",
