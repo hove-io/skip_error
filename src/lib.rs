@@ -172,7 +172,7 @@ macro_rules! skip_error_macro_generation {
         #[macro_export]
         macro_rules! $macro_name {
             ($result:expr) => {{
-                skip_error_and_log!($result, $log_level)
+                $crate::skip_error_and_log!($result, $log_level)
             }};
         }
     };

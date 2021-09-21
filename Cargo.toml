@@ -1,6 +1,6 @@
 [package]
 name = "skip_error"
-version = "3.1.0"
+version = "3.1.1"
 license = "MIT"
 authors = ["Kisio Digital <team.coretools@kisio.org>"]
 description = "Utility helping skip and log Result::Error in iterations"
