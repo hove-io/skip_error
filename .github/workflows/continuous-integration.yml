@@ -31,6 +31,22 @@ jobs:
           profile: minimal
           components: clippy
     - name: Run cargo clippy
+      run: cargo clippy --workspace --all-features --message-format=json -- --warn clippy::pedantic > clippy.json
+    - name: Run sonarqube
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: > 
+          -Dsonar.projectKey=CanalTP_skip_error
+          -Dsonar.projectName=skip_error
+          -Dsonar.sources=src/
+          -Dsonar.sourceEncoding=UTF-8
+          -Dsonar.rust.clippy.reportPaths=clippy.json
+          -Dsonar.organization=canaltp
+          -Dsonar.verbose=true
+    - name: Run cargo clippy
       uses: actions-rs/cargo@v1
       with:
         command: clippy

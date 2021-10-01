@@ -262,9 +262,16 @@ where
         self.inner.next().and_then(|result| match result {
             Ok(value) => Some(value),
             Err(_error) => {
+                // if let Some(log_level) = self.log_level {
+                //     __log!(_error, log_level);
+                // }
+                // self.next()
                 #[cfg(any(feature = "log", feature = "tracing"))]
-                if let Some(log_level) = self.log_level {
-                    __log!(_error, log_level);
+                match self.log_level {
+                    Some(log_level) => {
+                        __log!(_error, log_level);
+                    }
+                    None => {}
                 }
                 self.next()
             }
