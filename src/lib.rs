@@ -380,9 +380,9 @@ where
     /// assert_eq!(v, vec![0,0,0]);
     /// testing_logger::validate(|captured_logs| {
     ///   assert_eq!(captured_logs[0].level, log::Level::Warn);
-    ///   assert_eq!(captured_logs[0].body, "Boom on 1 ");
+    ///   assert_eq!(captured_logs[0].body, "Boom on 1");
     ///   assert_eq!(captured_logs[1].level, log::Level::Warn);
-    ///   assert_eq!(captured_logs[1].body, "Boom on 3 ");
+    ///   assert_eq!(captured_logs[1].body, "Boom on 3");
     /// });
     /// ```
     #[cfg(feature = "tracing")]
