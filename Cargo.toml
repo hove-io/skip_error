@@ -2,7 +2,7 @@
 name = "skip_error"
 version = "3.1.1"
 license = "MIT"
-authors = ["Kisio Digital <team.coretools@kisio.org>"]
+authors = ["Hove <team.coretools@kisio.org>"]
 description = "Utility helping skip and log Result::Error in iterations"
 edition = "2018"
 homepage = "https://github.com/hove-io/skip_error"
