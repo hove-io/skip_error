@@ -7,14 +7,9 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
+    container: kisiodigital/rust-ci:latest-proj8.1.0
     steps:
     - uses: actions/checkout@master
-    - name: Install Rust
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: stable
-          profile: minimal
-          override: true
     - name: Cargo login
       uses: actions-rs/cargo@v1
       with:
