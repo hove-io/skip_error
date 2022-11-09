@@ -1,79 +1,45 @@
 name: Continuous Integration
-on: [push, pull_request]
+
+on:
+  push:
+    branches: [master]
+  pull_request:
 
 jobs:
   rustfmt:
     name: Formatting check
     runs-on: ubuntu-latest
+    container: kisiodigital/rust-ci:latest-proj8.1.0
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master')
     steps:
-    - uses: actions/checkout@master
-    - name: Install Rust stable
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: stable
-          profile: minimal
-          components: rustfmt
+    - uses: actions/checkout@v3
     - name: Run cargo fmt
-      uses: actions-rs/cargo@v1
-      with:
-        command: fmt
-        args: --all -- --check
-
+      run: |
+        cargo fmt --all -- --check
   clippy:
     name: Analyzing code with Clippy
     runs-on: ubuntu-latest
+    container: kisiodigital/rust-ci:latest-proj8.1.0
     steps:
     - uses: actions/checkout@master
-    - name: Install Rust stable
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: stable
-          profile: minimal
-          components: clippy
     - name: Run cargo clippy
-      uses: actions-rs/cargo@v1
-      with:
-        command: clippy
-        args: --workspace --all-features -- -D warnings
-
+      run: |
+        cargo clippy --workspace --all-features -- -D warnings
   tests:
     name: Tests
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        build: [stable, beta]
-        include:
-          - build: stable
-            os: ubuntu-latest
-            rust: stable
-          - build: beta
-            os: ubuntu-latest
-            rust: beta
+    runs-on: ubuntu-latest
+    container: kisiodigital/rust-ci:latest-proj8.1.0
     steps:
     - uses: actions/checkout@master
-    - name: Install Rust ${{ matrix.rust }}
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: ${{ matrix.rust }}
-          profile: minimal
-          override: true
     - name: Run tests without features
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --workspace --verbose
+      run: |
+        cargo test --workspace --verbose
     - name: Run tests with 'log' feature
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --workspace --verbose --features log
+      run: |
+        cargo test --workspace --verbose --features log
     - name: Run tests with 'tracing' feature
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --workspace --verbose --features tracing
+      run: |
+        cargo test --workspace --verbose --features tracing
     - name: Run tests with all features
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --workspace --verbose --all-features
+      run: |
+        cargo test --workspace --verbose --all-features
